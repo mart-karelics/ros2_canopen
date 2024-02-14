@@ -47,8 +47,8 @@ uint16_t Motor402::getMode()
 
 bool Motor402::isModeSupportedByDevice(uint16_t mode)
 {
-  uint32_t supported_modes =
-    driver->universal_get_value<uint32_t>(supported_drive_modes_index, 0x0);
+  uint32_t supported_modes = 0xFFFF;
+//    driver->universal_get_value<uint32_t>(supported_drive_modes_index, 0x0);
   bool supported = supported_modes & (1 << (mode - 1));
   bool below_max = mode <= 32;
   bool above_min = mode > 0;
@@ -255,12 +255,15 @@ void Motor402::handleRead() { readState(); }
 void Motor402::handleWrite()
 {
   std::scoped_lock lock(cw_mutex_);
-  control_word_ |= (1 << Command402::CW_Halt);
+//  control_word_ |= (1 << Command402::CW_Halt);
   if (state_handler_.getState() == State402::Operation_Enable)
   {
     std::scoped_lock lock(mode_mutex_);
     Mode::OpModeAccesser cwa(control_word_);
     bool okay = false;
+//  Weird enough, we only get to print this after calling the velocity_mode. After start and the whole init process we
+//  do not fall here. That's why the halt bit is not flipped back
+//  if (selected_mode_) std::cout << "Is selected mode: " << selected_mode_->mode_id_ << " MODE: " << mode_id_ << std::endl;
     if (selected_mode_ && selected_mode_->mode_id_ == mode_id_)
     {
       okay = selected_mode_->write(cwa);
@@ -278,7 +281,8 @@ void Motor402::handleWrite()
   {
     RCLCPP_INFO(rclcpp::get_logger("canopen_402_driver"), "Fault reset");
     this->driver->universal_set_value<uint16_t>(
-      control_word_entry_index, 0x0, control_word_ & ~(1 << Command402::CW_Fault_Reset));
+//      control_word_entry_index, 0x0, control_word_ & ~(1 << Command402::CW_Fault_Reset));
+        control_word_entry_index, 0x0, control_word_ | (1 << Command402::CW_Fault_Reset));
   }
   else
   {

@@ -56,6 +56,8 @@ void NodeCanopenProxyDriver<rclcpp::Node>::init(bool called_from_base)
       &NodeCanopenProxyDriver<rclcpp::Node>::on_nmt_state_start, this, std::placeholders::_1,
       std::placeholders::_2));
 
+   auto cb_group = this->node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+
   sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
     std::string(this->node_->get_name()).append("/sdo_read").c_str(),
     std::bind(

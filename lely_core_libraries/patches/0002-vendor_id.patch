@@ -1,0 +1,23 @@
+diff --git a/src/co/nmt_boot.c b/src/co/nmt_boot.c
+index caf8361a..76cb8627 100644
+--- a/src/co/nmt_boot.c
++++ b/src/co/nmt_boot.c
+@@ -37,7 +37,7 @@
+ #include <inttypes.h>
+ #endif
+ #include <stdlib.h>
+-
++#include <stdio.h>
+ #ifndef LELY_CO_NMT_BOOT_WAIT_TIMEOUT
+ /// The timeout (in milliseconds) before trying to boot the slave again.
+ #define LELY_CO_NMT_BOOT_WAIT_TIMEOUT 1000
+@@ -1233,6 +1233,9 @@ co_nmt_boot_chk_vendor_id_on_enter(co_nmt_boot_t *boot)
+ 	// and proceed with the product code.
+ 	co_unsigned32_t vendor_id =
+ 			co_dev_get_val_u32(boot->dev, 0x1f85, boot->id);
++	printf("vendor id: %d \n", vendor_id);
++	fflush(stdout);
++
+ 	if (!vendor_id)
+ 		return co_nmt_boot_chk_product_code_state;
+ 

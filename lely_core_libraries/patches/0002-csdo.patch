@@ -1,0 +1,147 @@
+diff --git a/src/co/csdo.c b/src/co/csdo.c
+index 430e0de0..f71faf6f 100644
+--- a/src/co/csdo.c
++++ b/src/co/csdo.c
+@@ -37,6 +37,7 @@
+ #include <assert.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <stdio.h>
+ 
+ #if LELY_NO_MALLOC
+ #ifndef CO_CSDO_MEMBUF_SIZE
+@@ -996,8 +997,9 @@ __co_csdo_fini(struct __co_csdo *sdo)
+ co_csdo_t *
+ co_csdo_create(can_net_t *net, co_dev_t *dev, co_unsigned8_t num)
+ {
+-	trace("creating Client-SDO %d", num);
++	printf("creating Client-SDO %d", num);
+ 
++	fflush(stdout);
+ 	int errc = 0;
+ 
+ 	co_csdo_t *sdo = __co_csdo_alloc();
+@@ -1024,7 +1026,8 @@ void
+ co_csdo_destroy(co_csdo_t *csdo)
+ {
+ 	if (csdo) {
+-		trace("destroying Client-SDO %d", csdo->num);
++		printf("destroying Client-SDO %d", csdo->num);
++	fflush(stdout);
+ 		__co_csdo_fini(csdo);
+ 		__co_csdo_free(csdo);
+ 	}
+@@ -1224,7 +1227,8 @@ co_csdo_dn_req(co_csdo_t *sdo, co_unsigned16_t idx, co_unsigned8_t subidx,
+ 	if (co_csdo_dn_ind(sdo, idx, subidx, ptr, n, con, data) == -1)
+ 		return -1;
+ 
+-	trace("CSDO: %04X:%02X: initiate download", idx, subidx);
++	printf("CSDO: %04X:%02X: initiate download", idx, subidx);
++	fflush(stdout);
+ 
+ 	if (sdo->timeout)
+ 		can_timer_timeout(sdo->timer, sdo->net, sdo->timeout);
+@@ -1296,15 +1300,23 @@ co_csdo_up_req(co_csdo_t *sdo, co_unsigned16_t idx, co_unsigned8_t subidx,
+ {
+ 	assert(sdo);
+ 
++	sdo->timeout = 1000 ;
++	printf("\nCSDO: %04X:%02X: initiate upload, timeout %d \n", idx, subidx, sdo->timeout);
+ 	if (co_csdo_up_ind(sdo, idx, subidx, NULL, con, data) == -1)
+ 		return -1;
+ 
+-	trace("CSDO: %04X:%02X: initiate upload", idx, subidx);
+ 
+-	if (sdo->timeout)
++	fflush(stdout);
++
++	if (sdo->timeout){
++		printf("timeout\n");
+ 		can_timer_timeout(sdo->timer, sdo->net, sdo->timeout);
++	}
++	printf("1\n");
+ 	co_csdo_send_up_ini_req(sdo);
++	printf("2\n");
+ 	co_csdo_enter(sdo, co_csdo_up_ini_state);
++	printf("3\n");
+ 
+ 	return 0;
+ }
+@@ -1318,7 +1330,8 @@ co_csdo_blk_dn_req(co_csdo_t *sdo, co_unsigned16_t idx, co_unsigned8_t subidx,
+ 	if (co_csdo_dn_ind(sdo, idx, subidx, ptr, n, con, data) == -1)
+ 		return -1;
+ 
+-	trace("CSDO: %04X:%02X: initiate block download", idx, subidx);
++	printf("CSDO: %04X:%02X: initiate block download", idx, subidx);
++	fflush(stdout);
+ 
+ 	if (sdo->timeout)
+ 		can_timer_timeout(sdo->timer, sdo->net, sdo->timeout);
+@@ -1361,7 +1374,8 @@ co_csdo_blk_up_req(co_csdo_t *sdo, co_unsigned16_t idx, co_unsigned8_t subidx,
+ 	if (co_csdo_up_ind(sdo, idx, subidx, NULL, con, data) == -1)
+ 		return -1;
+ 
+-	trace("CSDO: %04X:%02X: initiate block upload", idx, subidx);
++	printf("CSDO: %04X:%02X: initiate block upload", idx, subidx);
++	fflush(stdout);
+ 
+ 	// Use the maximum block size by default.
+ 	sdo->blksize = CO_SDO_MAX_SEQNO;
+@@ -1660,8 +1674,11 @@ co_csdo_dn_ini_on_recv(co_csdo_t *sdo, const struct can_msg *msg)
+ 	assert(sdo);
+ 	assert(msg);
+ 
+-	if (msg->len < 1)
++
++	if (msg->len < 1){
++		printf(" mesg length is 0\n"); fflush(stdout);
+ 		return co_csdo_abort_res(sdo, CO_SDO_AC_NO_CS);
++	}
+ 	co_unsigned8_t cs = msg->data[0];
+ 
+ 	// Check the server command specifier.
+@@ -1669,14 +1686,17 @@ co_csdo_dn_ini_on_recv(co_csdo_t *sdo, const struct can_msg *msg)
+ 	switch (cs & CO_SDO_CS_MASK) {
+ 	case CO_SDO_SCS_DN_INI_RES: break;
+ 	case CO_SDO_CS_ABORT:
++		printf(" SC_ABORTi\n" );fflush(stdout);
+ 		ac = msg->len < 8 ? 0 : ldle_u32(msg->data + 4);
+ 		return co_csdo_abort_ind(sdo, ac ? ac : CO_SDO_AC_ERROR);
+ 	default: return co_csdo_abort_res(sdo, CO_SDO_AC_NO_CS);
+ 	}
+ 
+ 	// Check the object index and sub-index.
+-	if (msg->len < 4)
++	if (msg->len < 4){
++	printf(" mesg length is < 4\n"); fflush(stdout);
+ 		return co_csdo_abort_res(sdo, CO_SDO_AC_ERROR);
++	}
+ 	co_unsigned16_t idx = ldle_u16(msg->data + 1);
+ 	co_unsigned8_t subidx = msg->data[3];
+ 	if (idx != sdo->idx || subidx != sdo->subidx)
+@@ -1749,6 +1769,8 @@ co_csdo_dn_seg_on_recv(co_csdo_t *sdo, const struct can_msg *msg)
+ static co_csdo_state_t *
+ co_csdo_up_ini_on_abort(co_csdo_t *sdo, co_unsigned32_t ac)
+ {
++	printf("abort\n");
++	fflush(stdout);
+ 	return co_csdo_abort_res(sdo, ac);
+ }
+ 
+@@ -1757,12 +1779,16 @@ co_csdo_up_ini_on_time(co_csdo_t *sdo, const struct timespec *tp)
+ {
+ 	(void)tp;
+ 
++	printf("Timeout\n");
++	fflush(stdout);
+ 	return co_csdo_abort_res(sdo, CO_SDO_AC_TIMEOUT);
+ }
+ 
+ static co_csdo_state_t *
+ co_csdo_up_ini_on_recv(co_csdo_t *sdo, const struct can_msg *msg)
+ {
++	printf("Received\n");
++	fflush(stdout);
+ 	assert(sdo);
+ 	assert(msg);
+ 	struct membuf *buf = sdo->up_buf;
